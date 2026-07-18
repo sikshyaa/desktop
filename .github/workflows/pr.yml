@@ -1,0 +1,83 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-checks:
+    name: Rust (fmt, test, coverage)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies (Tauri Linux build deps)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libdbus-1-dev \
+            pkg-config \
+            libssl-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, llvm-tools-preview
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run tests
+        run: cargo test --all-features --workspace
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Load coverage threshold from .env.example
+        run: |
+          THRESHOLD=$(grep -E '^COVERAGE_THRESHOLD=' ../.env.example | cut -d '=' -f2 | tr -d '[:space:]"')
+          if [ -z "$THRESHOLD" ]; then
+            echo "COVERAGE_THRESHOLD not found in .env.example, defaulting to 0"
+            THRESHOLD=0
+          fi
+          echo "COVERAGE_THRESHOLD=$THRESHOLD" >> "$GITHUB_ENV"
+
+      - name: Enforce coverage threshold
+        run: cargo llvm-cov --workspace --fail-under-lines "$COVERAGE_THRESHOLD"
+
+  frontend-checks:
+    name: Frontend (prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check formatting with prettier
+        run: pnpm exec prettier --check .
