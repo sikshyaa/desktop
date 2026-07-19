@@ -2,8 +2,9 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "Sikshyaa - Docs",
+  title: "Sikshyaa ",
   description: "An file based offline video player built for places without internet.",
+  base: "/desktop/",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
