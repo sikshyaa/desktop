@@ -1,5 +1,5 @@
 lint-rust:
-    cargo fmt --all
+    cd src-tauri && cargo fmt --all
 
 prettify:
     pnpx prettier -w src docs *.yaml *.json

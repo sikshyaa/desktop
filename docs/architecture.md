@@ -163,16 +163,16 @@ The existing `create_video` test verifies that a video can be created and return
 
 ## Where should new code go?
 
-| Code | Location |
-|---|---|
-| Tauri command | `src-tauri/src` |
-| Tauri state/startup/plugin setup | `src-tauri/src` |
-| Domain/application error | `core/src/error.rs` |
-| Domain model | `core/src/models` |
-| Application use case | `core/src/app.rs` |
-| SurrealDB initialization | `core/src/app.rs`, called by Tauri startup |
-| Frontend-specific DTO or display formatting | frontend `src` |
-| Database-specific query logic | currently `core/src/app.rs` |
+| Code                                        | Location                                   |
+| ------------------------------------------- | ------------------------------------------ |
+| Tauri command                               | `src-tauri/src`                            |
+| Tauri state/startup/plugin setup            | `src-tauri/src`                            |
+| Domain/application error                    | `core/src/error.rs`                        |
+| Domain model                                | `core/src/models`                          |
+| Application use case                        | `core/src/app.rs`                          |
+| SurrealDB initialization                    | `core/src/app.rs`, called by Tauri startup |
+| Frontend-specific DTO or display formatting | frontend `src`                             |
+| Database-specific query logic               | currently `core/src/app.rs`                |
 
 ## FAQ
 

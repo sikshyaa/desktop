@@ -12,8 +12,9 @@ pub fn run() {
     // Load local development settings before reading RUST_LOG.
     let _ = dotenvy::dotenv();
 
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("desktop_lib=debug,sikshyaa_core=debug,surrealdb=info"));
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        tracing_subscriber::EnvFilter::new("desktop_lib=debug,sikshyaa_core=debug,surrealdb=info")
+    });
 
     // `try_init` keeps startup safe if another integration already installed a subscriber.
     let _ = tracing_subscriber::fmt()
@@ -30,9 +31,8 @@ pub fn run() {
 
             let database_path = app_data_dir.join("sikshyaa.db");
             tracing::info!(path = ?database_path, "initializing SurrealDB");
-            let sikshyaa_app = tauri::async_runtime::block_on(
-                SikshyaaApp::with_file_surreal(&database_path),
-            )?;
+            let sikshyaa_app =
+                tauri::async_runtime::block_on(SikshyaaApp::with_file_surreal(&database_path))?;
 
             app.manage(sikshyaa_app);
             tracing::info!("SurrealDB initialized successfully");
