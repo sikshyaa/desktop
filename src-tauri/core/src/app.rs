@@ -26,8 +26,11 @@ impl SikshyaaApp {
 
     // video methods
     pub async fn create_video(&self, video: Video) -> Result<Video, SikshyaaError> {
+        tracing::debug!(subject = %video.subject, topic = %video.topic, "creating video");
         let created: Option<Video> = self.db.create("video").content(video).await?;
-        created.ok_or(SikshyaaError::VideoNotCreated)
+        let created = created.ok_or(SikshyaaError::VideoNotCreated)?;
+        tracing::info!(subject = %created.subject, topic = %created.topic, "video created");
+        Ok(created)
     }
 
     //source methods
@@ -41,14 +44,9 @@ mod tests {
     #[tokio::test]
     async fn create_video_persists_and_returns_video() -> Result<(), SikshyaaError> {
         let app = SikshyaaApp::with_memory_surreal().await?;
-        let video = Video {
-            grade: "10".to_owned(),
-            subject: "Science".to_owned(),
-            topic: "Light".to_owned(),
-            sub_topic: "Reflection".to_owned(),
-            teacher_name: Some("Ada".to_owned()),
-            source: Some("https://example.com/light".to_owned()),
-        };
+        let video = Video::new("10", "Science", "Light", "Reflection")
+            .with_teacher_name("Ada")
+            .with_source("https://example.com/light");
 
         let created = app.create_video(video).await?;
 

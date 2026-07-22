@@ -10,13 +10,30 @@ pub struct Video {
     pub source: Option<String>,
 }
 
-pub fn new_video() -> Video {
-    Video {
-        grade: String::new(),
-        subject: String::new(),
-        topic: String::new(),
-        sub_topic: String::new(),
-        teacher_name: None,
-        source: None,
+impl Video {
+    pub fn new(
+        grade: impl Into<String>,
+        subject: impl Into<String>,
+        topic: impl Into<String>,
+        sub_topic: impl Into<String>,
+    ) -> Self {
+        Self {
+            grade: grade.into(),
+            subject: subject.into(),
+            topic: topic.into(),
+            sub_topic: sub_topic.into(),
+            teacher_name: None,
+            source: None,
+        }
+    }
+
+    pub fn with_teacher_name(mut self, teacher_name: impl Into<String>) -> Self {
+        self.teacher_name = Some(teacher_name.into());
+        self
+    }
+
+    pub fn with_source(mut self, source: impl Into<String>) -> Self {
+        self.source = Some(source.into());
+        self
     }
 }

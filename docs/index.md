@@ -5,11 +5,11 @@ layout: home
 hero:
   name: "Sikshyaa"
   text: "An file based offline video player"
-  tagline: My great project tagline
+  tagline: An offline-first video player for places without internet
   actions:
     - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
+      text: Architecture
+      link: /architecture
     - theme: alt
       text: API Examples
       link: /api-examples
