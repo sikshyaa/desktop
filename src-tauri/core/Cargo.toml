@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-surrealdb = { version = "2", features = ["kv-surrealkv", "kv-mem"] }
+surrealdb = { version = "3", features = ["kv-surrealkv", "kv-mem"] }
+thiserror = "2.0.19"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
