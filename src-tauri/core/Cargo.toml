@@ -1,0 +1,7 @@
+[package]
+name = "sikshyaa_core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+surrealdb = { version = "2", features = ["kv-surrealkv", "kv-mem"] }
