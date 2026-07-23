@@ -1,7 +1,8 @@
-use surrealdb::types::SurrealValue;
+use surrealdb::types::{RecordId, SurrealValue};
 
 #[derive(Debug, SurrealValue)]
 pub struct Source {
+    id: Option<RecordId>,
     path: String,
     pattern: String,
 }
@@ -9,6 +10,7 @@ pub struct Source {
 impl Source {
     pub fn new(path: impl Into<String>, pattern: impl Into<String>) -> Self {
         Self {
+            id: None,
             path: path.into(),
             pattern: pattern.into(),
         }
