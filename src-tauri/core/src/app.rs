@@ -83,8 +83,8 @@ mod tests {
 
         let created = app.create_source(source).await?;
 
-        assert_eq!(created.path, path);
-        assert_eq!(created.pattern, pattern);
+        assert_eq!(created.path(), path);
+        assert_eq!(created.pattern(), pattern);
 
         Ok(())
     }
