@@ -3,7 +3,10 @@ use surrealdb::{
     engine::local::{Db, Mem, SurrealKv},
 };
 
-use crate::{error::SikshyaaError, models::video::Video};
+use crate::{
+    error::SikshyaaError,
+    models::{source::Source, video::Video},
+};
 
 pub struct SikshyaaApp {
     db: surrealdb::Surreal<Db>,
@@ -35,6 +38,16 @@ impl SikshyaaApp {
 
     //source methods
     //
+    //
+    pub async fn create_source(&self, source: Source) -> Result<Source, SikshyaaError> {
+        tracing::debug!(path = %source.path ,pattern = %source.pattern, "creating source");
+
+        // is the pattern valid AND does the path provided in the pattern exist?
+
+        let created_source: Option<Source> = self.db.create("source").content(source).await?;
+        let created_source = created_source.ok_or(SikshyaaError::SourceNotCreated)?;
+        Ok(created_source)
+    }
 }
 
 #[cfg(test)]
@@ -56,6 +69,22 @@ mod tests {
         assert_eq!(created.sub_topic, "Reflection");
         assert_eq!(created.teacher_name.as_deref(), Some("Ada"));
         assert_eq!(created.source.as_deref(), Some("https://example.com/light"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn create_source_persists_and_returns_source() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+        let path = "C:\\Users\\Aashutosh\\Videos";
+        let pattern = "{{teacherName}}/{{grade}}/{{subject}}/{{topic}}/{{subTopic}}/{{grade?}}.mp4";
+
+        let source = Source::new(path.to_string(), pattern.to_string());
+
+        let created = app.create_source(source).await?;
+
+        assert_eq!(created.path, path);
+        assert_eq!(created.pattern, pattern);
 
         Ok(())
     }

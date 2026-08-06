@@ -2,9 +2,9 @@ use surrealdb::types::{RecordId, SurrealValue};
 
 #[derive(Debug, SurrealValue)]
 pub struct Source {
-    id: Option<RecordId>,
-    path: String,
-    pattern: String,
+    pub id: Option<RecordId>,
+    pub path: String,
+    pub pattern: String,
 }
 
 impl Source {

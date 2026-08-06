@@ -6,4 +6,7 @@ pub enum SikshyaaError {
     Database(#[from] surrealdb::Error),
     #[error("video was not created")]
     VideoNotCreated,
+
+    #[error("source was not created")]
+    SourceNotCreated,
 }
