@@ -8,7 +8,10 @@ use std::path::Path;
 
 use crate::{
     error::SikshyaaError,
-    models::{source::Source, video::Video},
+    models::{
+        source::{self, Source},
+        video::Video,
+    },
 };
 
 pub struct SikshyaaApp {
@@ -81,6 +84,23 @@ impl SikshyaaApp {
             return Err(SikshyaaError::SourceNotCreated);
         }
         Ok(())
+    }
+
+    pub async fn get_sources(&self) -> Result<Vec<Source>, SikshyaaError> {
+        let mut result = self
+            .db
+            .query("SELECT * from type::table($table) ORDER BY id DESC")
+            .bind(("table", source::SOURCE_TABLENAME))
+            .await?;
+
+        let sources: Vec<Source> = result.take(0)?;
+
+        Ok(sources)
+    }
+
+    pub async fn get_source_by_id(&self, source_id: RecordId) -> Result<Source, SikshyaaError> {
+        let result: Option<Source> = self.db.select(source_id).await?;
+        result.ok_or(SikshyaaError::SourceNotCreated)
     }
 }
 
@@ -243,5 +263,75 @@ mod tests {
         ));
 
         Ok(())
+    }
+    #[tokio::test]
+    async fn get_sources_returns_all_sources_descending() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        let source_1 = app
+            .create_source(Source {
+                id: Some(RecordId::new(source::SOURCE_TABLENAME, "source-a")),
+                path: ".".to_string(),
+                pattern: "{{teacherName}}/{{grade}}/{{subject}}.mp4".to_string(),
+            })
+            .await?;
+
+        let source_2 = app
+            .create_source(Source {
+                id: Some(RecordId::new(source::SOURCE_TABLENAME, "source-b")),
+                path: ".".to_string(),
+                pattern: "{{teacherName}}/{{grade}}/{{topic}}.mp4".to_string(),
+            })
+            .await?;
+
+        let sources = app.get_sources().await?;
+
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].id, source_2.id); // "source-b" comes before "source-a" in DESC order
+        assert_eq!(sources[1].id, source_1.id);
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn get_source_by_id_success() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        let record_id = RecordId::new(source::SOURCE_TABLENAME, "test-get-id");
+        let created_source = app
+            .create_source(Source {
+                id: Some(record_id.clone()),
+                path: ".".to_string(),
+                pattern: "{{teacherName}}/{{grade}}/{{subject}}.mp4".to_string(),
+            })
+            .await?;
+
+        let source_id = created_source.id.expect("Source ID should be set");
+
+        let fetched_source = app.get_source_by_id(source_id.clone()).await?;
+
+        assert_eq!(fetched_source.id, Some(source_id));
+        assert_eq!(fetched_source.path, ".");
+        assert_eq!(
+            fetched_source.pattern,
+            "{{teacherName}}/{{grade}}/{{subject}}.mp4"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn get_source_by_id_not_found() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        // if this is not done, surreal errors saying the table does not exist
+        app.db.query("DEFINE TABLE source SCHEMALESS;").await?;
+
+        let non_existent_id = RecordId::new(source::SOURCE_TABLENAME, "non-existent-id");
+        let result = app.get_source_by_id(non_existent_id).await;
+
+        match result {
+            Err(SikshyaaError::SourceNotCreated) => Ok(()), // Expected path
+            other => panic!("Expected Err(SourceNotCreated), but got: {:?}", other),
+        }
     }
 }
