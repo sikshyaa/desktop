@@ -6,6 +6,7 @@ pub struct Source {
     pub path: String,
     pub pattern: String,
 }
+pub const SOURCE_TABLENAME: &str = "source";
 
 impl Source {
     pub fn new(path: impl Into<String>, pattern: impl Into<String>) -> Self {

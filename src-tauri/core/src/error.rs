@@ -9,4 +9,7 @@ pub enum SikshyaaError {
 
     #[error("source was not created")]
     SourceNotCreated,
+
+    #[error("invalid directory passed")]
+    InvalidVideoDirectory,
 }
