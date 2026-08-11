@@ -106,11 +106,9 @@ impl SikshyaaApp {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
-
-    use crate::models::source;
-
     use super::*;
+    use crate::models::source;
+    use std::env;
 
     #[tokio::test]
     async fn create_video_persists_and_returns_video() -> Result<(), SikshyaaError> {
@@ -130,7 +128,6 @@ mod tests {
 
         Ok(())
     }
-
     #[tokio::test]
     async fn create_source_persists_and_returns_source() -> Result<(), SikshyaaError> {
         let app = SikshyaaApp::with_memory_surreal().await?;
@@ -151,7 +148,6 @@ mod tests {
 
         Ok(())
     }
-
     #[tokio::test]
     async fn edit_source_fails_on_invalid_directory() -> Result<(), SikshyaaError> {
         let app = SikshyaaApp::with_memory_surreal().await?;
@@ -194,7 +190,6 @@ mod tests {
 
         Ok(())
     }
-
     #[tokio::test]
     async fn edit_source_success() -> Result<(), SikshyaaError> {
         let app = SikshyaaApp::with_memory_surreal().await?;
@@ -318,7 +313,6 @@ mod tests {
 
         Ok(())
     }
-
     #[tokio::test]
     async fn get_source_by_id_not_found() -> Result<(), SikshyaaError> {
         let app = SikshyaaApp::with_memory_surreal().await?;
