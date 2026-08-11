@@ -49,7 +49,7 @@ impl SikshyaaApp {
         // is the pattern valid AND does the path provided in the pattern exist?
         let path = Path::new(&source.path);
 
-        if !path.is_dir() || !path.exists() {
+        if !path.is_dir() {
             tracing::error!(path = %source.path, "path does not exist");
             return Err(SikshyaaError::InvalidVideoDirectory);
         }
@@ -66,7 +66,7 @@ impl SikshyaaApp {
     ) -> Result<Source, SikshyaaError> {
         let path = Path::new(&source.path);
 
-        if !path.is_dir() || !path.exists() {
+        if !path.is_dir() {
             tracing::error!(path = %source.path, "path does not exist");
             return Err(SikshyaaError::InvalidVideoDirectory);
         }
