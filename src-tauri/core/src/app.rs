@@ -299,7 +299,7 @@ mod tests {
         let record_id = RecordId::new(source::SOURCE_TABLENAME, "test-get-id");
         let created_source = app
             .create_source(Source {
-                id: Some(record_id.clone()),
+                id: Some(record_id),
                 path: ".".to_string(),
                 pattern: "{{teacherName}}/{{grade}}/{{subject}}.mp4".to_string(),
             })
