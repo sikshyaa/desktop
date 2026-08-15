@@ -1,11 +1,17 @@
 use surrealdb::{
     Surreal,
     engine::local::{Db, Mem, SurrealKv},
+    types::RecordId,
 };
+
+use std::path::Path;
 
 use crate::{
     error::SikshyaaError,
-    models::{source::Source, video::Video},
+    models::{
+        source::{self, Source},
+        video::Video,
+    },
 };
 
 pub struct SikshyaaApp {
@@ -13,9 +19,7 @@ pub struct SikshyaaApp {
 }
 
 impl SikshyaaApp {
-    pub async fn with_file_surreal(
-        path: impl AsRef<std::path::Path>,
-    ) -> Result<Self, SikshyaaError> {
+    pub async fn with_file_surreal(path: impl AsRef<Path>) -> Result<Self, SikshyaaError> {
         let db = Surreal::new::<SurrealKv>(path.as_ref()).await?;
         db.use_ns("sikshyaa").use_db("main").await?;
         Ok(Self { db })
@@ -43,16 +47,68 @@ impl SikshyaaApp {
         tracing::debug!(path = %source.path ,pattern = %source.pattern, "creating source");
 
         // is the pattern valid AND does the path provided in the pattern exist?
+        let path = Path::new(&source.path);
+
+        if !path.is_dir() {
+            tracing::error!(path = %source.path, "path does not exist");
+            return Err(SikshyaaError::InvalidVideoDirectory);
+        }
 
         let created_source: Option<Source> = self.db.create("source").content(source).await?;
         let created_source = created_source.ok_or(SikshyaaError::SourceNotCreated)?;
         Ok(created_source)
+    }
+
+    pub async fn edit_source(
+        &self,
+        source_id: RecordId,
+        source: Source,
+    ) -> Result<Source, SikshyaaError> {
+        let path = Path::new(&source.path);
+
+        if !path.is_dir() {
+            tracing::error!(path = %source.path, "path does not exist");
+            return Err(SikshyaaError::InvalidVideoDirectory);
+        }
+
+        let updated_source: Option<Source> = self.db.update(source_id).content(source).await?;
+        let updated_source = updated_source.ok_or(SikshyaaError::SourceNotCreated)?;
+
+        Ok(updated_source)
+    }
+
+    pub async fn delete_source(&self, source_id: RecordId) -> Result<(), SikshyaaError> {
+        let deleted: Option<Source> = self.db.delete(source_id).await?;
+
+        if deleted.is_none() {
+            return Err(SikshyaaError::SourceNotCreated);
+        }
+        Ok(())
+    }
+
+    pub async fn get_sources(&self) -> Result<Vec<Source>, SikshyaaError> {
+        let mut result = self
+            .db
+            .query("SELECT * from type::table($table) ORDER BY id DESC")
+            .bind(("table", source::SOURCE_TABLENAME))
+            .await?;
+
+        let sources: Vec<Source> = result.take(0)?;
+
+        Ok(sources)
+    }
+
+    pub async fn get_source_by_id(&self, source_id: RecordId) -> Result<Source, SikshyaaError> {
+        let result: Option<Source> = self.db.select(source_id).await?;
+        result.ok_or(SikshyaaError::SourceNotCreated)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::source;
+    use std::env;
 
     #[tokio::test]
     async fn create_video_persists_and_returns_video() -> Result<(), SikshyaaError> {
@@ -72,11 +128,15 @@ mod tests {
 
         Ok(())
     }
-
     #[tokio::test]
     async fn create_source_persists_and_returns_source() -> Result<(), SikshyaaError> {
         let app = SikshyaaApp::with_memory_surreal().await?;
-        let path = "C:\\Users\\Aashutosh\\Videos";
+
+        let path = env::current_dir()
+            .unwrap_or("C:\\".into())
+            .display()
+            .to_string();
+
         let pattern = "{{teacherName}}/{{grade}}/{{subject}}/{{topic}}/{{subTopic}}/{{grade?}}.mp4";
 
         let source = Source::new(path.to_string(), pattern.to_string());
@@ -87,5 +147,185 @@ mod tests {
         assert_eq!(created.pattern(), pattern);
 
         Ok(())
+    }
+    #[tokio::test]
+    async fn edit_source_fails_on_invalid_directory() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        let path = env::current_dir()
+            .unwrap_or("C:\\".into())
+            .display()
+            .to_string();
+
+        let src = app
+            .create_source(Source {
+                id: Some(RecordId::new(source::SOURCE_TABLENAME, "random-id")),
+                path,
+                pattern:
+                    "{{teacherName}}/{{grade}}/{{subject}}/{{topic}}/{{subTopic}}/{{grade?}}.mp4"
+                        .to_string(),
+            })
+            .await;
+
+        assert!(src.is_ok());
+
+        let src = src.unwrap();
+
+        let edit_source_result = app
+            .edit_source(
+                src.id.unwrap(),
+                Source {
+                    id: None,
+                    path: "/path/that/does/not/exist/9999".to_string(),
+                    pattern: "".to_string(),
+                },
+            )
+            .await;
+
+        assert!(edit_source_result.is_err());
+        assert!(matches!(
+            edit_source_result,
+            Err(SikshyaaError::InvalidVideoDirectory)
+        ));
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn edit_source_success() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        let initial_path = ".".to_string();
+        let record_id = RecordId::new(source::SOURCE_TABLENAME, "test-id-123");
+        let pattern = "{{teacherName}}/{{grade}}/{{subject}}/{{topic}}/{{subTopic}}/{{grade?}}.mp4";
+
+        let src = app
+            .create_source(Source {
+                id: Some(record_id),
+                path: initial_path,
+                pattern: pattern.into(),
+            })
+            .await?;
+
+        let updated_path_buf = std::env::current_dir().unwrap().join("test_temp_dir_edit");
+        tokio::fs::create_dir_all(&updated_path_buf).await.ok();
+
+        let updated_path = updated_path_buf.to_string_lossy().into_owned();
+        let updated_pattern = pattern.to_string();
+        let result = app
+            .edit_source(
+                src.id.clone().unwrap(),
+                Source {
+                    id: None,
+                    path: updated_path.clone(),
+                    pattern: updated_pattern.clone(),
+                },
+            )
+            .await;
+
+        let _ = tokio::fs::remove_dir(&updated_path_buf).await;
+
+        let updated_source = result?;
+        assert_eq!(updated_source.id, src.id);
+        assert_eq!(updated_source.path, updated_path);
+        assert_eq!(updated_source.pattern, updated_pattern);
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn create_and_delete_source_success() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        let record_id = RecordId::new(source::SOURCE_TABLENAME, "test-delete-id");
+        let created_source = app
+            .create_source(Source {
+                id: Some(record_id.clone()),
+                path: ".".to_string(),
+                pattern: "{{teacherName}}/{{grade}}/{{subject}}.mp4".to_string(),
+            })
+            .await?;
+
+        let source_id = created_source.id.expect("Source ID should be populated");
+
+        app.delete_source(source_id.clone()).await?;
+
+        let deleted_record: Option<Source> = app.db.select(source_id.clone()).await?;
+        assert!(deleted_record.is_none());
+
+        let second_delete_result = app.delete_source(source_id).await;
+        assert!(matches!(
+            second_delete_result,
+            Err(SikshyaaError::SourceNotCreated)
+        ));
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn get_sources_returns_all_sources_descending() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        let source_1 = app
+            .create_source(Source {
+                id: Some(RecordId::new(source::SOURCE_TABLENAME, "source-a")),
+                path: ".".to_string(),
+                pattern: "{{teacherName}}/{{grade}}/{{subject}}.mp4".to_string(),
+            })
+            .await?;
+
+        let source_2 = app
+            .create_source(Source {
+                id: Some(RecordId::new(source::SOURCE_TABLENAME, "source-b")),
+                path: ".".to_string(),
+                pattern: "{{teacherName}}/{{grade}}/{{topic}}.mp4".to_string(),
+            })
+            .await?;
+
+        let sources = app.get_sources().await?;
+
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].id, source_2.id); // "source-b" comes before "source-a" in DESC order
+        assert_eq!(sources[1].id, source_1.id);
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn get_source_by_id_success() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        let record_id = RecordId::new(source::SOURCE_TABLENAME, "test-get-id");
+        let created_source = app
+            .create_source(Source {
+                id: Some(record_id),
+                path: ".".to_string(),
+                pattern: "{{teacherName}}/{{grade}}/{{subject}}.mp4".to_string(),
+            })
+            .await?;
+
+        let source_id = created_source.id.expect("Source ID should be set");
+
+        let fetched_source = app.get_source_by_id(source_id.clone()).await?;
+
+        assert_eq!(fetched_source.id, Some(source_id));
+        assert_eq!(fetched_source.path, ".");
+        assert_eq!(
+            fetched_source.pattern,
+            "{{teacherName}}/{{grade}}/{{subject}}.mp4"
+        );
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn get_source_by_id_not_found() -> Result<(), SikshyaaError> {
+        let app = SikshyaaApp::with_memory_surreal().await?;
+
+        // if this is not done, surreal errors saying the table does not exist
+        app.db.query("DEFINE TABLE source SCHEMALESS;").await?;
+
+        let non_existent_id = RecordId::new(source::SOURCE_TABLENAME, "non-existent-id");
+        let result = app.get_source_by_id(non_existent_id).await;
+
+        match result {
+            Err(SikshyaaError::SourceNotCreated) => Ok(()), // Expected path
+            other => panic!("Expected Err(SourceNotCreated), but got: {:?}", other),
+        }
     }
 }
